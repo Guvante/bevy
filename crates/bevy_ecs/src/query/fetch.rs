@@ -750,7 +750,7 @@ unsafe impl<T: Component> FetchState for WriteState<T> {
 }
 
 impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
-    type Item = Mut<'w, T>;
+    type Item = Mut<'s, T>;
     type State = WriteState<T>;
 
     const IS_DENSE: bool = {
@@ -856,7 +856,7 @@ impl<'w, 's, T: Component> Fetch<'w, 's> for WriteFetch<T> {
 }
 
 impl<'w, 's, T: Component> Fetch<'w, 's> for ReadOnlyWriteFetch<T> {
-    type Item = &'w T;
+    type Item = &'s T;
     type State = WriteState<T>;
 
     const IS_DENSE: bool = {
