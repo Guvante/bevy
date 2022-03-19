@@ -299,7 +299,7 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, 's, Q, Q::ReadOnlyFetch, F> {
+    pub fn iter(&'s self) -> QueryIter<'w, 's, Q, Q::ReadOnlyFetch, F> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -454,19 +454,17 @@ where
     /// # bevy_ecs::system::assert_is_system(report_names_system);
     /// ```
     #[inline]
-    pub fn for_each<'this>(
-        &'this self,
-        f: impl FnMut(<Q::ReadOnlyFetch as Fetch<'this, 's>>::Item),
-    ) {
+    pub fn for_each<FN: FnMut(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item)>(&'s self, f: FN) {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.for_each_unchecked_manual::<Q::ReadOnlyFetch, _>(
-                self.world,
-                f,
-                self.last_change_tick,
-                self.change_tick,
-            );
+            self.state
+                .for_each_unchecked_manual::<Q::ReadOnlyFetch, FN>(
+                    self.world,
+                    f,
+                    self.last_change_tick,
+                    self.change_tick,
+                );
         };
     }
 
@@ -526,17 +524,17 @@ where
     ///* `batch_size` - The number of batches to spawn
     ///* `f` - The function to run on each item in the query
     #[inline]
-    pub fn par_for_each<'this>(
-        &'this self,
+    pub fn par_for_each<FN: Fn(<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item) + Send + Sync + Clone>(
+        &'s self,
         task_pool: &TaskPool,
         batch_size: usize,
-        f: impl Fn(<Q::ReadOnlyFetch as Fetch<'this, 's>>::Item) + Send + Sync + Clone,
+        f: FN,
     ) {
         // SAFE: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
             self.state
-                .par_for_each_unchecked_manual::<Q::ReadOnlyFetch, _>(
+                .par_for_each_unchecked_manual::<Q::ReadOnlyFetch, FN>(
                     self.world,
                     task_pool,
                     batch_size,
@@ -603,9 +601,9 @@ where
     /// ```
     #[inline]
     pub fn get(
-        &self,
+        &'s self,
         entity: Entity,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QueryEntityError> {
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QueryEntityError> {
         // SAFE: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -836,7 +834,7 @@ where
     /// Panics if the number of query results is not exactly one. Use
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
-    pub fn single(&self) -> <Q::ReadOnlyFetch as Fetch<'_, 's>>::Item {
+    pub fn single(&'s self) -> <Q::ReadOnlyFetch as Fetch<'w, 's>>::Item {
         self.get_single().unwrap()
     }
 
@@ -872,8 +870,8 @@ where
     /// # bevy_ecs::system::assert_is_system(player_scoring_system);
     /// ```
     pub fn get_single(
-        &self,
-    ) -> Result<<Q::ReadOnlyFetch as Fetch<'_, 's>>::Item, QuerySingleError> {
+        &'s self,
+    ) -> Result<<Q::ReadOnlyFetch as Fetch<'w, 's>>::Item, QuerySingleError> {
         let mut query = self.iter();
         let first = query.next();
         let extra = query.next().is_some();
